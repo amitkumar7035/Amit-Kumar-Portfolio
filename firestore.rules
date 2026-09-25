@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all (Pillar 1 of hardened rules)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'amitkumar678793@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['title', 'slug', 'description', 'category']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 100 &&
+        data.description is string && data.description.size() <= 300 &&
+        data.category is string && data.category.size() <= 50 &&
+        (!('image' in data) || (data.image is string && data.image.size() <= 500)) &&
+        (!('longDescription' in data) || (data.longDescription is string && data.longDescription.size() <= 3000)) &&
+        (!('problem' in data) || (data.problem is string && data.problem.size() <= 1500)) &&
+        (!('solution' in data) || (data.solution is string && data.solution.size() <= 1500)) &&
+        (!('challenges' in data) || (data.challenges is string && data.challenges.size() <= 1500)) &&
+        (!('githubUrl' in data) || (data.githubUrl is string && data.githubUrl.size() <= 500)) &&
+        (!('liveUrl' in data) || (data.liveUrl is string && data.liveUrl.size() <= 500)) &&
+        (!('featured' in data) || data.featured is bool) &&
+        (!('technologies' in data) || (data.technologies is list && data.technologies.size() <= 20)) &&
+        (!('features' in data) || (data.features is list && data.features.size() <= 20));
+    }
+
+    function isValidSkill(data) {
+      return data.keys().hasAll(['name', 'category', 'level']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 60 &&
+        data.category is string && data.category.size() <= 50 &&
+        data.level is string && data.level.size() <= 50 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 200)) &&
+        (!('icon' in data) || (data.icon is string && data.icon.size() <= 50)) &&
+        (!('order' in data) || data.order is number);
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['name', 'issuer']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.issuer is string && data.issuer.size() > 0 && data.issuer.size() <= 100 &&
+        (!('issueDate' in data) || (data.issueDate is string && data.issueDate.size() <= 50)) &&
+        (!('credentialUrl' in data) || (data.credentialUrl is string && data.credentialUrl.size() <= 500)) &&
+        (!('previewUrl' in data) || (data.previewUrl is string && data.previewUrl.size() <= 500)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500));
+    }
+
+    function isValidEducation(data) {
+      return data.keys().hasAll(['degree', 'institution']) &&
+        data.degree is string && data.degree.size() > 0 && data.degree.size() <= 120 &&
+        data.institution is string && data.institution.size() > 0 && data.institution.size() <= 150 &&
+        (!('field' in data) || (data.field is string && data.field.size() <= 120)) &&
+        (!('duration' in data) || (data.duration is string && data.duration.size() <= 60)) &&
+        (!('status' in data) || (data.status is string && data.status.size() <= 50)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        (!('order' in data) || data.order is number);
+    }
+
+    function isValidContactMessage(data) {
+      return data.keys().hasAll(['name', 'email', 'subject', 'message', 'status']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 120 &&
+        data.subject is string && data.subject.size() > 0 && data.subject.size() <= 150 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 3000 &&
+        (data.status == 'NEW' || data.status == 'READ' || data.status == 'REPLIED');
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+        data.email is string && data.email.size() <= 120 &&
+        data.role is string && data.role.size() <= 30 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100));
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if isValidId(projectId) && isAdmin() && isValidProject(incoming());
+      allow update: if isValidId(projectId) && isAdmin() && isValidProject(incoming());
+      allow delete: if isValidId(projectId) && isAdmin();
+    }
+
+    // Skills collection
+    match /skills/{skillId} {
+      allow read: if true;
+      allow create: if isValidId(skillId) && isAdmin() && isValidSkill(incoming());
+      allow update: if isValidId(skillId) && isAdmin() && isValidSkill(incoming());
+      allow delete: if isValidId(skillId) && isAdmin();
+    }
+
+    // Certificates collection
+    match /certificates/{certificateId} {
+      allow read: if true;
+      allow create: if isValidId(certificateId) && isAdmin() && isValidCertificate(incoming());
+      allow update: if isValidId(certificateId) && isAdmin() && isValidCertificate(incoming());
+      allow delete: if isValidId(certificateId) && isAdmin();
+    }
+
+    // Education collection
+    match /education/{educationId} {
+      allow read: if true;
+      allow create: if isValidId(educationId) && isAdmin() && isValidEducation(incoming());
+      allow update: if isValidId(educationId) && isAdmin() && isValidEducation(incoming());
+      allow delete: if isValidId(educationId) && isAdmin();
+    }
+
+    // Contact messages collection (Public can submit; only admin can view/manage)
+    match /contact_messages/{messageId} {
+      allow create: if isValidId(messageId) && isValidContactMessage(incoming()) && incoming().status == 'NEW';
+      allow read, delete: if isValidId(messageId) && isAdmin();
+      allow update: if isValidId(messageId) && isAdmin() && isValidContactMessage(incoming());
+    }
+
+    // Admins collection
+    match /admins/{adminUid} {
+      allow read: if isSignedIn() && (request.auth.uid == adminUid || isAdmin());
+      allow write: if isAdmin() && isValidAdmin(incoming());
+    }
+  }
+}
