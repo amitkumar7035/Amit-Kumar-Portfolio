@@ -9,15 +9,9 @@ import {
   Brain,
   Layers
 } from 'lucide-react';
-import { usePortfolio } from '../context/PortfolioContext';
+import { ProfileImage } from './ProfileImage';
 
 export const About: React.FC = () => {
-  const { profilePhoto } = usePortfolio();
-  const [imageError, setImageError] = useState(false);
-
-  React.useEffect(() => {
-    setImageError(false);
-  }, [profilePhoto]);
 
   // Strictly verified cards only - no invented client counts or fake years of experience
   const verifiedCards = [
@@ -73,12 +67,9 @@ export const About: React.FC = () => {
               <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-blue-600/20 to-purple-600/20 blur-xl opacity-75 -z-10" />
 
               <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 shadow-xl">
-                <img
-                  src={imageError ? '/images/profile-placeholder.svg' : profilePhoto}
+                <ProfileImage
                   alt="Amit Kumar portrait presentation"
-                  onError={() => setImageError(true)}
                   className="w-full aspect-[4/5] object-cover grayscale contrast-105"
-                  referrerPolicy="no-referrer"
                 />
 
                 <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent">

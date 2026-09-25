@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   ArrowRight,
   Send,
@@ -7,17 +7,10 @@ import {
   Instagram,
   Facebook
 } from 'lucide-react';
-import { usePortfolio } from '../context/PortfolioContext';
 import { SOCIAL_LINKS } from '../lib/constants';
+import { ProfileImage } from './ProfileImage';
 
 export const Hero: React.FC = () => {
-  const { profilePhoto } = usePortfolio();
-  const [imageError, setImageError] = useState(false);
-
-  // Reset image error state whenever profilePhoto changes
-  useEffect(() => {
-    setImageError(false);
-  }, [profilePhoto]);
 
   return (
     <section
@@ -126,12 +119,9 @@ export const Hero: React.FC = () => {
               <div className="relative p-2.5 rounded-3xl bg-gradient-to-br from-cyan-500/30 via-slate-800/40 to-blue-500/30 border border-cyan-500/25 dark:border-cyan-500/30 shadow-2xl backdrop-blur-sm">
                 {/* Photo container */}
                 <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-inner group">
-                  <img
-                    src={imageError ? '/images/profile-placeholder.svg' : profilePhoto}
+                  <ProfileImage
                     alt="Amit Kumar - Web Developer"
-                    onError={() => setImageError(true)}
                     className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
                   />
 
                   {/* Gradient bottom shade */}

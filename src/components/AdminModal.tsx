@@ -19,9 +19,12 @@ import {
   ExternalLink,
   Github,
   Key,
-  FolderGit2
+  FolderGit2,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { usePortfolio } from '../context/PortfolioContext';
+import { ProfileImage } from './ProfileImage';
 import { Project, Skill, Certificate, Education } from '../types';
 
 interface AdminModalProps {
@@ -36,6 +39,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     loginWithGoogle,
     logout,
     loginWithPasscode,
+    profilePhoto,
+    setProfilePhoto,
     projects,
     skills,
     education,
@@ -55,7 +60,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     seedDatabase
   } = usePortfolio();
 
-  const [activeTab, setActiveTab] = useState<'projects' | 'skills' | 'education' | 'messages' | 'database'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'skills' | 'education' | 'messages' | 'database' | 'profile'>('projects');
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [photoSaveNotice, setPhotoSaveNotice] = useState('');
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -354,6 +361,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 { id: 'skills', label: `Skills (${skills.length})`, icon: Layers },
                 { id: 'education', label: `Education & Certs`, icon: BookOpen },
                 { id: 'messages', label: `Inquiries (${messages.length})`, icon: Mail },
+                { id: 'profile', label: 'Profile Photo', icon: ImageIcon },
                 { id: 'database', label: `Database & Seed`, icon: Database },
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -947,6 +955,152 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB: PROFILE PHOTO */}
+              {activeTab === 'profile' && (
+                <div className="space-y-6 max-w-2xl">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                      Profile Image Configuration
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Configure your hero portrait image path, upload directly, or review Vercel deployment paths.
+                    </p>
+                  </div>
+
+                  {photoSaveNotice && (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{photoSaveNotice}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                    {/* Live Preview */}
+                    <div className="md:col-span-5 flex flex-col items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                      <div className="text-xs font-mono text-slate-400 mb-3">Live Presentation Preview</div>
+                      <div className="relative w-36 h-36 rounded-2xl overflow-hidden border-2 border-cyan-500/40 shadow-lg bg-slate-900">
+                        <ProfileImage
+                          alt="Amit Kumar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="mt-3 text-[11px] font-mono text-center text-slate-500 dark:text-slate-400 break-all px-2">
+                        Active: <span className="text-cyan-400">{profilePhoto}</span>
+                      </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="md:col-span-7 space-y-4">
+                      {/* Upload Directly from Device */}
+                      <div className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/20 space-y-2">
+                        <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Upload className="w-4 h-4 text-cyan-400" />
+                          <span>Option 1: Upload from Computer (Instant Base64)</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Embeds your photo directly into persistent browser storage so it works everywhere without waiting for builds.
+                        </p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                if (typeof reader.result === 'string') {
+                                  setProfilePhoto(reader.result);
+                                  setPhotoSaveNotice('Profile photo uploaded and applied successfully!');
+                                  setTimeout(() => setPhotoSaveNotice(''), 4000);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Set Relative or Custom Path */}
+                      <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+                        <label className="text-xs font-bold text-slate-900 dark:text-white block">
+                          Option 2: Relative Asset Path for Vercel
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={photoUrlInput}
+                            onChange={(e) => setPhotoUrlInput(e.target.value)}
+                            placeholder="/profile.jpg"
+                            className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-cyan-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (photoUrlInput.trim()) {
+                                setProfilePhoto(photoUrlInput.trim());
+                                setPhotoSaveNotice(`Photo path set to "${photoUrlInput.trim()}"!`);
+                                setTimeout(() => setPhotoSaveNotice(''), 4000);
+                              }
+                            }}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-500 text-slate-950 hover:bg-cyan-400 transition-colors"
+                          >
+                            Apply
+                          </button>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                            Quick Presets:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: '/profile.jpg (Standard)', val: '/profile.jpg' },
+                              { label: '/IMG_20231108_191858_290.webp', val: '/IMG_20231108_191858_290.webp' },
+                              { label: '/images/profile.jpg', val: '/images/profile.jpg' },
+                              { label: 'Vector Placeholder SVG', val: '/images/profile-placeholder.svg' },
+                            ].map((preset) => (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() => {
+                                  setPhotoUrlInput(preset.val);
+                                  setProfilePhoto(preset.val);
+                                  setPhotoSaveNotice(`Switched photo source to: ${preset.val}`);
+                                  setTimeout(() => setPhotoSaveNotice(''), 4000);
+                                }}
+                                className="px-2 py-1 rounded-lg text-[10px] font-mono bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-cyan-400 border border-slate-300 dark:border-slate-700 transition-colors"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Vercel Folder Structure Guide */}
+                  <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-2">
+                    <h5 className="text-xs font-bold text-indigo-400 flex items-center gap-1.5 font-mono">
+                      <span>Vercel Directory &amp; Case Sensitivity Guide</span>
+                    </h5>
+                    <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside leading-relaxed">
+                      <li>
+                        <strong>Place file in <code className="text-cyan-400 font-mono">public/</code>:</strong> Files in Vite's <code className="text-cyan-400 font-mono">public/</code> directory are copied to the root of the build during deployment.
+                      </li>
+                      <li>
+                        <strong>Exact Case Sensitivity:</strong> Vercel runs on Linux servers. A file named <code className="text-cyan-400 font-mono">profile.jpg</code> must match exactly. If named <code className="text-cyan-400 font-mono">Profile.JPG</code>, Linux treats it as a different file.
+                      </li>
+                      <li>
+                        <strong>Relative Paths:</strong> Always reference assets with <code className="text-cyan-400 font-mono">/profile.jpg</code> or <code className="text-cyan-400 font-mono">./profile.jpg</code> rather than full local system paths.
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               )}
 

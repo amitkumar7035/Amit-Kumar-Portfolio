@@ -90,7 +90,7 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Profile Photo: checks uploaded image name first, then custom or default
   const [profilePhoto, setProfilePhotoState] = useState<string>(() => {
-    return localStorage.getItem('amit_profile_photo') || '/IMG_20231108_191858_290.webp';
+    return localStorage.getItem('amit_profile_photo') || '/profile.jpg';
   });
 
   const setProfilePhoto = (url: string) => {
