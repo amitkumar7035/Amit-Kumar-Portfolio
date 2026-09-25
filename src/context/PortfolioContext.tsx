@@ -59,6 +59,7 @@ interface PortfolioContextType {
   updateEducation: (id: string, edu: Partial<Education>) => Promise<void>;
   deleteEducation: (id: string) => Promise<void>;
   addCertificate: (cert: Omit<Certificate, 'id'>) => Promise<void>;
+  updateCertificate: (id: string, cert: Partial<Certificate>) => Promise<void>;
   deleteCertificate: (id: string) => Promise<void>;
   updateMessageStatus: (id: string, status: 'NEW' | 'READ' | 'REPLIED') => Promise<void>;
   deleteMessage: (id: string) => Promise<void>;
@@ -420,6 +421,15 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const updateCertificate = async (id: string, cert: Partial<Certificate>) => {
+    const path = `certificates/${id}`;
+    try {
+      await updateDoc(doc(db, 'certificates', id), cert);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
   const deleteCertificate = async (id: string) => {
     const path = `certificates/${id}`;
     try {
@@ -495,6 +505,7 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({ children 
         updateEducation,
         deleteEducation,
         addCertificate,
+        updateCertificate,
         deleteCertificate,
         updateMessageStatus,
         deleteMessage,

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { PortfolioProvider } from './context/PortfolioContext';
 import { Navbar } from './components/Navbar';
@@ -15,6 +16,18 @@ import { Contact } from './components/Contact';
 import { Footer } from './components/Footer';
 import { AdminModal } from './components/AdminModal';
 import { GeminiStudioModal } from './components/GeminiStudioModal';
+
+// Authentication & Dedicated Admin Pages
+import { LoginPage } from './pages/Login';
+import { ResetPasswordPage } from './pages/ResetPassword';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminProjects } from './pages/admin/AdminProjects';
+import { AdminSkills } from './pages/admin/AdminSkills';
+import { AdminCertificates } from './pages/admin/AdminCertificates';
+import { AdminEducation } from './pages/admin/AdminEducation';
+import { AdminMessages } from './pages/admin/AdminMessages';
+import { AdminSettings } from './pages/admin/AdminSettings';
 
 function PortfolioApp() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -106,7 +119,77 @@ function PortfolioApp() {
 export default function App() {
   return (
     <PortfolioProvider>
-      <PortfolioApp />
+      <BrowserRouter>
+        <Routes>
+          {/* Public Portfolio Route - No login required for regular visitors */}
+          <Route path="/" element={<PortfolioApp />} />
+
+          {/* Secure Login & Reset Password Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Protected Dedicated Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <AdminLayout>
+                <AdminDashboard />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/projects"
+            element={
+              <AdminLayout>
+                <AdminProjects />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/skills"
+            element={
+              <AdminLayout>
+                <AdminSkills />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/certificates"
+            element={
+              <AdminLayout>
+                <AdminCertificates />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/education"
+            element={
+              <AdminLayout>
+                <AdminEducation />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/messages"
+            element={
+              <AdminLayout>
+                <AdminMessages />
+              </AdminLayout>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <AdminLayout>
+                <AdminSettings />
+              </AdminLayout>
+            }
+          />
+
+          {/* Fallback to Home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </PortfolioProvider>
   );
 }

@@ -2,7 +2,24 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
 import { GoogleGenAI } from '@google/genai';
+import {
+  findUserByEmail,
+  findUserById,
+  updateUser,
+  verifyPassword,
+  hashPassword,
+  createSession,
+  getSession,
+  deleteSession,
+  checkLoginRateLimit,
+  recordFailedLogin,
+  resetFailedAttempts,
+  createPasswordResetToken,
+  verifyAndConsumeResetToken,
+  seedInitialAdmin,
+} from './src/server/authService.js';
 
 dotenv.config();
 
@@ -11,6 +28,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json({ limit: '25mb' }));
+app.use(cookieParser());
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 
@@ -603,8 +621,251 @@ app.post('/api/gemini/video-download', async (req, res) => {
   }
 });
 
+// ==========================================
+// SERVER-SIDE AUTHENTICATION & ADMIN APIS
+// ==========================================
+
+// Authentication Middleware
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const token =
+    req.cookies?.auth_session ||
+    (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required. Please log in.' });
+  }
+
+  const sessionData = getSession(token);
+  if (!sessionData || sessionData.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+  }
+
+  (req as any).user = sessionData.user;
+  (req as any).session = sessionData.session;
+  next();
+}
+
+// 1. POST /api/auth/login
+app.post('/api/auth/login', (req, res) => {
+  const { email, password, rememberMe = false } = req.body;
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Password is required.' });
+  }
+
+  // Rate Limiting check
+  const rateLimitKey = `${ip}_${email.trim().toLowerCase()}`;
+  const rateCheck = checkLoginRateLimit(rateLimitKey);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      error: `Too many failed login attempts. Account temporarily locked for security. Please try again in ${rateCheck.waitMinutes} minute(s).`,
+    });
+  }
+
+  const user = findUserByEmail(email);
+  if (!user) {
+    recordFailedLogin(rateLimitKey);
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  const isValid = verifyPassword(password, user.passwordHash);
+  if (!isValid) {
+    const failRecord = recordFailedLogin(rateLimitKey);
+    if (failRecord.locked) {
+      return res.status(429).json({
+        error: 'Too many failed login attempts. Account locked for 15 minutes.',
+      });
+    }
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  if (user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Access denied. You do not have administrator permissions.' });
+  }
+
+  // Reset rate limits on success
+  resetFailedAttempts(rateLimitKey);
+
+  // Create session
+  const session = createSession(user.id, Boolean(rememberMe));
+  const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+
+  res.cookie('auth_session', session.sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge,
+    path: '/',
+  });
+
+  return res.json({
+    success: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  });
+});
+
+// 2. GET /api/auth/me
+app.get('/api/auth/me', (req, res) => {
+  const token =
+    req.cookies?.auth_session ||
+    (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+
+  if (!token) {
+    return res.json({ authenticated: false });
+  }
+
+  const sessionData = getSession(token);
+  if (!sessionData) {
+    res.clearCookie('auth_session', { path: '/' });
+    return res.json({ authenticated: false });
+  }
+
+  return res.json({
+    authenticated: true,
+    user: {
+      id: sessionData.user.id,
+      name: sessionData.user.name,
+      email: sessionData.user.email,
+      role: sessionData.user.role,
+    },
+  });
+});
+
+// 3. POST /api/auth/logout
+app.post('/api/auth/logout', (req, res) => {
+  const token =
+    req.cookies?.auth_session ||
+    (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+
+  if (token) {
+    deleteSession(token);
+  }
+
+  res.clearCookie('auth_session', { path: '/' });
+  return res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// 4. POST /api/auth/forgot-password
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+
+  const user = findUserByEmail(email);
+  let resetToken = '';
+  if (user) {
+    resetToken = createPasswordResetToken(user.email);
+    console.log(`[PASSWORD RESET] Generated reset token for ${user.email}: ${resetToken}`);
+  }
+
+  // Consistent message to prevent email enumeration
+  return res.json({
+    success: true,
+    message: 'If the email is registered, password reset instructions have been sent.',
+    resetUrl: resetToken ? `/reset-password?token=${resetToken}` : undefined,
+  });
+});
+
+// 5. POST /api/auth/reset-password
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, newPassword, confirmPassword } = req.body;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Reset token is required.' });
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match.' });
+  }
+
+  const result = verifyAndConsumeResetToken(token.trim(), newPassword);
+  if (!result.success) {
+    return res.status(400).json({ error: result.message });
+  }
+
+  return res.json({ success: true, message: result.message });
+});
+
+// 6. POST /api/auth/change-password (Protected)
+app.post('/api/auth/change-password', requireAdmin, (req, res) => {
+  const user = (req as any).user;
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'Current password is required.' });
+  }
+
+  if (!verifyPassword(currentPassword, user.passwordHash)) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'New passwords do not match.' });
+  }
+
+  const updatedHash = hashPassword(newPassword);
+  updateUser(user.id, { passwordHash: updatedHash });
+
+  return res.json({ success: true, message: 'Password updated successfully.' });
+});
+
+// 7. POST /api/auth/update-profile (Protected)
+app.post('/api/auth/update-profile', requireAdmin, (req, res) => {
+  const user = (req as any).user;
+  const { name, email } = req.body;
+
+  const updates: any = {};
+  if (name && typeof name === 'string' && name.trim()) {
+    updates.name = name.trim();
+  }
+  if (email && typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    updates.email = email.trim().toLowerCase();
+  }
+
+  const updatedUser = updateUser(user.id, updates);
+  return res.json({
+    success: true,
+    user: {
+      id: updatedUser?.id,
+      name: updatedUser?.name,
+      email: updatedUser?.email,
+      role: updatedUser?.role,
+    },
+  });
+});
+
 // START SERVER WITH VITE MIDDLEWARE IN DEV OR STATIC SERVING IN PROD
 async function startServer() {
+  seedInitialAdmin();
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({

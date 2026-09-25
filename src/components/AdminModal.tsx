@@ -164,7 +164,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     setEditingProject(p);
     setProjectForm({
       title: p.title,
-      slug: p.slug,
+      slug: p.slug || '',
       description: p.description,
       longDescription: p.longDescription || '',
       problem: p.problem || '',
@@ -173,7 +173,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
       image: p.image || '',
       category: p.category,
       technologies: p.technologies.join(', '),
-      features: p.features.join(', '),
+      features: p.features ? p.features.join(', ') : '',
       githubUrl: p.githubUrl,
       liveUrl: p.liveUrl,
       featured: p.featured
