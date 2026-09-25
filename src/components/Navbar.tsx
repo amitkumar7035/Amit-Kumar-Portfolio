@@ -19,7 +19,7 @@ import { SOCIAL_LINKS } from '../lib/constants';
 
 interface NavbarProps {
   onOpenAdmin: () => void;
-  onOpenGeminiStudio: (tab?: 'chat' | 'image' | 'music' | 'video') => void;
+  onOpenGeminiStudio: (tab?: 'chat' | 'maps' | 'image' | 'music' | 'video') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, onOpenGeminiStudio }) => {

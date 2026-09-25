@@ -110,10 +110,10 @@ Feel free to ask about:
 - **Social links & Contact info** (GitHub, LinkedIn, Instagram, Facebook)`;
 }
 
-// 1. MULTI-TURN CHATBOT WITH GOOGLE SEARCH GROUNDING & AUTOMATIC FALLBACK
+// 1. MULTI-TURN CHATBOT WITH GOOGLE SEARCH & GOOGLE MAPS GROUNDING (gemini-3.5-flash)
 app.post('/api/gemini/chat', async (req, res) => {
   try {
-    const { messages = [] } = req.body;
+    const { messages = [], groundingMode = 'auto', userLocation = null } = req.body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Valid messages array is required' });
@@ -126,47 +126,138 @@ app.post('/api/gemini/chat', async (req, res) => {
     }));
 
     const lastUserQuery = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '';
+    const qLower = lastUserQuery.toLowerCase();
+
+    // Determine whether to use Google Maps or Google Search tool
+    // Note: googleMaps and googleSearch cannot be used in the same request
+    const isPlacesQuery =
+      groundingMode === 'maps' ||
+      (groundingMode === 'auto' &&
+        /(where|place|places|map|maps|nearby|location|address|city|country|college|university|office|restaurant|cafe|campus|directions|route|india|delhi|bangalore)/i.test(
+          qLower
+        ));
 
     let reply = '';
     let searchSources: Array<{ title: string; url: string }> = [];
+    let mapsPlaces: Array<{
+      title: string;
+      uri: string;
+      address?: string;
+      reviews?: Array<{ text: string; author?: string }>;
+    }> = [];
+    let activeTool: 'search' | 'maps' | 'none' = 'none';
     let succeeded = false;
 
-    // STEP A: Try with Google Search Grounding across candidate models
-    for (const modelName of CANDIDATE_CHAT_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: contents,
-          config: {
+    // STEP A: Execute with specific grounding tool on gemini-3.5-flash (primary model)
+    const primaryModel = 'gemini-3.5-flash';
+    const fallbackModels = ['gemini-3.8-flash', 'gemini-flash-latest'];
+    const modelsToTry = [primaryModel, ...fallbackModels];
+
+    if (isPlacesQuery) {
+      // GOOGLE MAPS GROUNDING
+      for (const modelName of modelsToTry) {
+        try {
+          const config: any = {
             systemInstruction: AMIT_PORTFOLIO_SYSTEM_INSTRUCTION,
-            tools: [{ googleSearch: {} }],
-          },
-        });
+            tools: [{ googleMaps: {} }],
+          };
 
-        reply = response.text || '';
-        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        for (const chunk of groundingChunks as any[]) {
-          if (chunk?.web?.uri) {
-            searchSources.push({
-              title: chunk.web.title || chunk.web.uri,
-              url: chunk.web.uri,
-            });
+          if (userLocation && typeof userLocation.latitude === 'number' && typeof userLocation.longitude === 'number') {
+            config.toolConfig = {
+              retrievalConfig: {
+                latLng: {
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                },
+              },
+            };
           }
-        }
 
-        if (reply) {
-          succeeded = true;
-          break;
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: config,
+          });
+
+          reply = response.text || '';
+          activeTool = 'maps';
+
+          const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          for (const chunk of groundingChunks as any[]) {
+            if (chunk?.maps) {
+              const reviews: Array<{ text: string; author?: string }> = [];
+              if (chunk.maps.placeAnswerSources?.reviewSnippets) {
+                for (const r of chunk.maps.placeAnswerSources.reviewSnippets) {
+                  if (r.reviewText) {
+                    reviews.push({
+                      text: r.reviewText,
+                      author: r.authorAttribution?.displayName || 'Local Reviewer',
+                    });
+                  }
+                }
+              }
+
+              mapsPlaces.push({
+                title: chunk.maps.title || 'Google Maps Location',
+                uri: chunk.maps.uri || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(chunk.maps.title || lastUserQuery)}`,
+                address: chunk.maps.address,
+                reviews: reviews.slice(0, 3),
+              });
+            } else if (chunk?.web?.uri) {
+              searchSources.push({
+                title: chunk.web.title || chunk.web.uri,
+                url: chunk.web.uri,
+              });
+            }
+          }
+
+          if (reply) {
+            succeeded = true;
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`Model ${modelName} with googleMaps failed:`, err?.status || err?.message);
         }
-      } catch (err: any) {
-        // If Google Search tool hits quota limit (429) or high demand, proceed to try without search tool
-        console.warn(`Model ${modelName} with search grounding encountered error:`, err?.status || err?.message);
+      }
+    } else {
+      // GOOGLE SEARCH GROUNDING
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: {
+              systemInstruction: AMIT_PORTFOLIO_SYSTEM_INSTRUCTION,
+              tools: [{ googleSearch: {} }],
+            },
+          });
+
+          reply = response.text || '';
+          activeTool = 'search';
+
+          const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          for (const chunk of groundingChunks as any[]) {
+            if (chunk?.web?.uri) {
+              searchSources.push({
+                title: chunk.web.title || chunk.web.uri,
+                url: chunk.web.uri,
+              });
+            }
+          }
+
+          if (reply) {
+            succeeded = true;
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`Model ${modelName} with googleSearch failed:`, err?.status || err?.message);
+        }
       }
     }
 
-    // STEP B: If search tool calls were rate-limited or failed, retry without search tool
+    // STEP B: Fallback without tools if tools encountered rate limits
     if (!succeeded) {
-      for (const modelName of CANDIDATE_CHAT_MODELS) {
+      for (const modelName of modelsToTry) {
         try {
           const response = await ai.models.generateContent({
             model: modelName,
@@ -179,31 +270,123 @@ app.post('/api/gemini/chat', async (req, res) => {
           reply = response.text || '';
           if (reply) {
             succeeded = true;
+            activeTool = 'none';
             break;
           }
         } catch (err: any) {
-          console.warn(`Model ${modelName} without search encountered error:`, err?.status || err?.message);
+          console.warn(`Model ${modelName} ungrounded fallback failed:`, err?.status || err?.message);
         }
       }
     }
 
-    // STEP C: If all online API quotas are exhausted, provide rich portfolio answer
+    // STEP C: Portfolio heuristic fallback
     if (!succeeded || !reply) {
       reply = generatePortfolioFallback(lastUserQuery);
     }
 
     res.json({
       reply,
+      activeTool,
       sources: searchSources,
+      places: mapsPlaces,
     });
   } catch (err: any) {
     console.error('Gemini chat outer error:', err);
-    // Even on unexpected error, return a helpful portfolio answer
     const fallbackAnswer = generatePortfolioFallback('about amit kumar');
     res.json({
       reply: fallbackAnswer,
+      activeTool: 'none',
       sources: [],
+      places: [],
     });
+  }
+});
+
+// 1.1 DEDICATED GOOGLE MAPS GROUNDING ENDPOINT (gemini-3.5-flash with googleMaps)
+app.post('/api/gemini/maps', async (req, res) => {
+  try {
+    const { query, latitude, longitude } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const config: any = {
+      systemInstruction: 'You are a geospatial and places assistant grounded in Google Maps data. Provide clear answers about locations, cities, distances, tech hubs, campuses, and points of interest. Include practical details like addresses, recommendations, and local insights.',
+      tools: [{ googleMaps: {} }],
+    };
+
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      config.toolConfig = {
+        retrievalConfig: {
+          latLng: {
+            latitude,
+            longitude,
+          },
+        },
+      };
+    }
+
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-3.8-flash'];
+    let reply = '';
+    let places: Array<{
+      title: string;
+      uri: string;
+      address?: string;
+      reviews?: Array<{ text: string; author?: string }>;
+    }> = [];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: query,
+          config,
+        });
+
+        reply = response.text || '';
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+        for (const chunk of groundingChunks as any[]) {
+          if (chunk?.maps) {
+            const reviews: Array<{ text: string; author?: string }> = [];
+            if (chunk.maps.placeAnswerSources?.reviewSnippets) {
+              for (const r of chunk.maps.placeAnswerSources.reviewSnippets) {
+                if (r.reviewText) {
+                  reviews.push({
+                    text: r.reviewText,
+                    author: r.authorAttribution?.displayName || 'Google Maps Contributor',
+                  });
+                }
+              }
+            }
+
+            places.push({
+              title: chunk.maps.title || 'Google Maps Location',
+              uri: chunk.maps.uri || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(chunk.maps.title || query)}`,
+              address: chunk.maps.address,
+              reviews: reviews.slice(0, 3),
+            });
+          }
+        }
+
+        if (reply) break;
+      } catch (err: any) {
+        console.warn(`googleMaps call failed with ${modelName}:`, err?.status || err?.message);
+      }
+    }
+
+    if (!reply) {
+      reply = `I searched Google Maps for "${query}". While live Maps grounding encountered a brief network delay, Amit Kumar is based in India where major tech hubs include Bengaluru, Noida, Gurugram, and Hyderabad.`;
+    }
+
+    res.json({
+      reply,
+      places,
+    });
+  } catch (err: any) {
+    console.error('Maps endpoint error:', err);
+    res.status(500).json({ error: 'Failed to process Google Maps query' });
   }
 });
 

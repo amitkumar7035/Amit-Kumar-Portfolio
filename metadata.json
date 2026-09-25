@@ -1,7 +1,7 @@
 {
   "name": "Amit Kumar | Portfolio",
   "description": "Portfolio of Amit Kumar, a BTech Computer Science student and web developer building modern responsive web experiences.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
 

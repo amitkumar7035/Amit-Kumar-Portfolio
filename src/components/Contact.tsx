@@ -18,7 +18,11 @@ import {
 import { usePortfolio } from '../context/PortfolioContext';
 import { SOCIAL_LINKS } from '../lib/constants';
 
-export const Contact: React.FC = () => {
+interface ContactProps {
+  onOpenMaps?: () => void;
+}
+
+export const Contact: React.FC<ContactProps> = ({ onOpenMaps }) => {
   const { submitContactMessage } = usePortfolio();
 
   const [formData, setFormData] = useState({
@@ -189,6 +193,32 @@ export const Contact: React.FC = () => {
                       Open to internships, projects &amp; freelance
                     </div>
                   </div>
+                </div>
+
+                {/* Base Location & Google Maps Grounding Card */}
+                <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase">Location &amp; Maps</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        India • Remote &amp; On-Site
+                      </div>
+                    </div>
+                  </div>
+                  {onOpenMaps && (
+                    <button
+                      type="button"
+                      onClick={onOpenMaps}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-xs border border-emerald-500/30 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                      title="Explore tech hubs with Google Maps Grounding"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Explore Maps</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

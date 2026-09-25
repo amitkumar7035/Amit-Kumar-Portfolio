@@ -19,9 +19,9 @@ import { GeminiStudioModal } from './components/GeminiStudioModal';
 function PortfolioApp() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isGeminiOpen, setIsGeminiOpen] = useState(false);
-  const [geminiTab, setGeminiTab] = useState<'chat' | 'image' | 'music' | 'video'>('chat');
+  const [geminiTab, setGeminiTab] = useState<'chat' | 'maps' | 'image' | 'music' | 'video'>('chat');
 
-  const handleOpenGemini = (tab: 'chat' | 'image' | 'music' | 'video' = 'chat') => {
+  const handleOpenGemini = (tab: 'chat' | 'maps' | 'image' | 'music' | 'video' = 'chat') => {
     setGeminiTab(tab);
     setIsGeminiOpen(true);
   };
@@ -63,7 +63,7 @@ function PortfolioApp() {
         <CodingProfiles />
 
         {/* Full-Stack Contact Section */}
-        <Contact />
+        <Contact onOpenMaps={() => handleOpenGemini('maps')} />
       </main>
 
       {/* Global Footer */}
