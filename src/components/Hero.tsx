@@ -109,32 +109,26 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Fixed Profile Photo Presentation */}
+          {/* Right Column: Fixed Profile Photo Presentation (Clean, Original Colors Without Filters/Overlays) */}
           <div className="lg:col-span-5 flex flex-col items-center lg:items-end">
             <div className="relative w-full max-w-[340px] sm:max-w-[380px]">
-              {/* Soft radial glow behind frame */}
-              <div className="absolute inset-0 -inset-4 bg-gradient-to-tr from-cyan-500/20 via-blue-600/20 to-purple-600/20 rounded-3xl blur-2xl -z-10" />
-
-              {/* Outer decorative glowing frame */}
-              <div className="relative p-2.5 rounded-3xl bg-gradient-to-br from-cyan-500/30 via-slate-800/40 to-blue-500/30 border border-cyan-500/25 dark:border-cyan-500/30 shadow-2xl backdrop-blur-sm">
-                {/* Photo container */}
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-inner group">
+              {/* Clean, Neutral Outer Frame */}
+              <div className="p-3 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xl">
+                {/* Photo container - zero overlays, filters, or blend modes */}
+                <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                   <ProfileImage
                     alt="Amit Kumar - Web Developer"
-                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover object-center"
                   />
+                </div>
 
-                  {/* Gradient bottom shade */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
-
-                  {/* Clean photo caption badge */}
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[11px] font-mono text-cyan-300/90 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/60 pointer-events-none">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Amit Kumar
-                    </span>
-                    <span className="text-slate-400">Web Developer</span>
-                  </div>
+                {/* Clean photo caption placed BELOW the image, never overlaying */}
+                <div className="mt-3 px-1.5 flex items-center justify-between text-xs font-mono text-slate-700 dark:text-slate-300">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Amit Kumar
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">Web Developer</span>
                 </div>
               </div>
             </div>

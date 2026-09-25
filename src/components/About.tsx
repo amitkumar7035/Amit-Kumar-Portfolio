@@ -60,21 +60,22 @@ export const About: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          {/* Left: Compact Portrait Presentation */}
+          {/* Left: Compact Portrait Presentation (Clean, Original Colors Without Filters/Overlays) */}
           <div className="lg:col-span-4 flex justify-center">
             <div className="relative w-full max-w-[280px]">
-              {/* Decorative background aura */}
-              <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-blue-600/20 to-purple-600/20 blur-xl opacity-75 -z-10" />
+              <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-xl">
+                {/* Photo container - zero overlays, filters, or blend modes */}
+                <div className="relative rounded-xl overflow-hidden aspect-[4/5] bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                  <ProfileImage
+                    alt="Amit Kumar portrait presentation"
+                    className="w-full h-full object-cover object-center"
+                  />
+                </div>
 
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 shadow-xl">
-                <ProfileImage
-                  alt="Amit Kumar portrait presentation"
-                  className="w-full aspect-[4/5] object-cover grayscale contrast-105"
-                />
-
-                <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent">
-                  <h3 className="text-sm font-bold text-white">Amit Kumar</h3>
-                  <p className="text-xs text-cyan-400 font-mono">BTech CS • Aspiring Engineer</p>
+                {/* Clean photo caption placed BELOW the image */}
+                <div className="mt-3 px-1 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Amit Kumar</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">BTech CS • Developer</p>
                 </div>
               </div>
             </div>

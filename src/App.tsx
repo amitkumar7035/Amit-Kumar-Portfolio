@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { PortfolioProvider } from './context/PortfolioContext';
 import { Navbar } from './components/Navbar';
+import { ScrollProgress } from './components/ScrollProgress';
 import { Hero } from './components/Hero';
 import { About } from './components/About';
 import { Skills } from './components/Skills';
@@ -27,6 +28,9 @@ function PortfolioApp() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#060b13] dark:text-slate-100 selection:bg-cyan-500 selection:text-white transition-colors duration-300 font-sans antialiased overflow-x-hidden relative">
+      {/* Scroll Progress Indicator fixed at top of viewport */}
+      <ScrollProgress />
+
       {/* Primary Sticky Navbar */}
       <Navbar
         onOpenAdmin={() => setIsAdminOpen(true)}

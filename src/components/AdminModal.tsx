@@ -981,7 +981,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                     {/* Live Preview */}
                     <div className="md:col-span-5 flex flex-col items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-mono text-slate-400 mb-3">Live Presentation Preview</div>
-                      <div className="relative w-36 h-36 rounded-2xl overflow-hidden border-2 border-cyan-500/40 shadow-lg bg-slate-900">
+                      <div className="relative w-36 h-36 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100 dark:bg-slate-950">
                         <ProfileImage
                           alt="Amit Kumar"
                           className="w-full h-full object-cover"
